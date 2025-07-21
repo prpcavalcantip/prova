@@ -1,5 +1,5 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import fitz
 import re
 from docx import Document
 from docx.shared import Pt
@@ -7,7 +7,7 @@ from io import BytesIO
 
 st.title("Adaptador de prova inclusivo")
 st.markdown("""
-Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes.
+Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes, filtrando apenas questões objetivas e claras.
 """)
 
 opcoes_neuro = [
@@ -34,17 +34,14 @@ def limpa_numero_questao(texto):
     return texto
 
 def corrige_questao_truncada(texto):
-    # Remove pontos duplicados e espaços extras
     texto = re.sub(r'\s*\.\s*\.', '. ', texto)
     texto = re.sub(r'\s*\.\s*', '. ', texto)
     texto = re.sub(r'\s{2,}', ' ', texto)
-    # Junta frases separadas
     frases = re.split(r'(\.|\?|!)', texto)
     frases_corrigidas = []
     for i in range(0, len(frases)-1, 2):
         frase = frases[i].strip()
         pontuacao = frases[i+1] if i+1 < len(frases) else ''
-        # Corrige letra maiúscula no início
         if frase:
             frase = frase[0].upper() + frase[1:]
         frases_corrigidas.append(frase + pontuacao + ' ')
@@ -52,7 +49,6 @@ def corrige_questao_truncada(texto):
     return resultado
 
 def simplifica_enunciado(enunciado):
-    # Simplifica e deixa mais direta a frase
     frases = re.split(r'(\.|\?|!)', enunciado)
     simples = []
     for f in frases:
@@ -65,7 +61,6 @@ def simplifica_enunciado(enunciado):
     return resultado
 
 def gera_dica(enunciado, alternativas):
-    # Dica gerada por IA simples baseada em palavras-chave
     if "BRICS" in enunciado.upper():
         return "Dica: BRICS é um grupo de países emergentes. Pense no desenvolvimento econômico de cada opção."
     if "população" in enunciado.lower():
@@ -77,6 +72,33 @@ def gera_dica(enunciado, alternativas):
     if "história" in enunciado.lower():
         return "Dica: Preste atenção à sequência de fatos históricos."
     return "Dica: Leia com atenção e procure palavras-chave que ajudam a decidir a resposta."
+
+def enunciado_tem_sentido(enunciado, alternativas):
+    # Filtra enunciados incompletos ou sem sentido (simulação de revisão de professor)
+    if not enunciado or len(enunciado.split()) < 8:
+        return False
+    # Filtra questões do tipo "marque V/F", "analise as afirmações", "correlacione", etc
+    padroes_excluir = [
+        r'marque v para verdadeiro', r'v para verdadeiro', r'f para falso',
+        r'analise as afirmações', r'assinale verdadeiro', r'correlacione',
+        r'preencha', r'complete a tabela', r'numere', r'coloque', r'observe as afirmações',
+        r'marque v/f', r'v/f', r'tabela abaixo', r'analise as proposições'
+    ]
+    texto_checagem = enunciado.lower()
+    for padrao in padroes_excluir:
+        if re.search(padrao, texto_checagem):
+            return False
+    # Exclui se alternativas são só letras (tipo "A) V V F F")
+    alt_checagem = ''.join(alternativas).replace(" ", "").upper()
+    if re.match(r'^[AVF]+$', alt_checagem.replace(')', '').replace('(', '')):
+        return False
+    # Exclui se alternativas são só padrões V/F
+    if all(re.match(r'^[A-E]\)\s*[FV\s]+$', alt) for alt in alternativas):
+        return False
+    # Exclui se enunciado pede "analise as afirmações"
+    if "analise as afirmações" in texto_checagem or "assinale verdadeiro" in texto_checagem:
+        return False
+    return True
 
 def extrair_questoes(pdf_file):
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
@@ -98,14 +120,15 @@ def extrair_questoes(pdf_file):
             enunciado_completo = " ".join([limpa_numero_questao(e.strip()) for e in enunciado if e])
             enunciado_corrigido = corrige_questao_truncada(enunciado_completo)
             enunciado_simples = simplifica_enunciado(enunciado_corrigido)
+            # Validação de sentido e exclusão de questões incompletas
+            if not enunciado_tem_sentido(enunciado_simples, alternativas):
+                continue
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
             dica = gera_dica(enunciado_simples, alternativas_formatadas)
             questao_completa = enunciado_simples + "\n\n" + alternativas_formatadas + "\n\n" + f"Dica: {dica}"
             if len(alternativas) >= 5 and enunciado_simples.strip():
                 questoes_formatadas.append((questao_completa, enunciado_simples))
-    # Ordena por tamanho do enunciado (as menores e mais diretas primeiro)
     questoes_formatadas.sort(key=lambda x: len(x[1]))
-    # Retorna 5 mais diretas
     return [q[0] for q in questoes_formatadas[:5]]
 
 def gerar_docx(questoes, neuro):
@@ -161,6 +184,6 @@ if uploaded_file:
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     else:
-        st.warning("Não foi possível extrair questões. Verifique o arquivo PDF e o padrão das questões.")
+        st.warning("Não foi possível extrair questões objetivas e claras. Verifique o arquivo PDF e o padrão das questões.")
 
 st.caption("Desenvolvido com Streamlit, PyMuPDF e python-docx")
