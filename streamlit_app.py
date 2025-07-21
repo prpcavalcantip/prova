@@ -6,10 +6,67 @@ from docx.shared import Pt
 from io import BytesIO
 import re
 
-# --- Tema de cores e logo ---
+# --- Configuração do Tema ---
+st.set_page_config(page_title="Adaptador de Provas", layout="wide")
+
+# --- Estilização CSS ---
+st.markdown("""
+    <style>
+    .main-title {
+        font-family: 'Roboto', sans-serif;
+        font-size: 2.5rem;
+        color: #1e40af;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    .subtitle {
+        font-family: 'Roboto', sans-serif;
+        font-size: 1rem;
+        color: #64748b;
+    }
+    .stButton > button {
+        background-color: #2563eb;
+        color: white;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-family: 'Roboto', sans-serif;
+        font-size: 1rem;
+        transition: background-color 0.3s;
+    }
+    .stButton > button:hover {
+        background-color: #1e40af;
+    }
+    .stTextInput > div > input {
+        border-radius: 8px;
+        font-family: 'Roboto', sans-serif;
+    }
+    .stSelectbox > div > select {
+        border-radius: 8px;
+        font-family: 'Roboto', sans-serif;
+    }
+    .stFileUploader > div {
+        border-radius: 8px;
+    }
+    .info-box {
+        background-color: #f8fafc;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    .footer {
+        text-align: center;
+        color: #64748b;
+        font-family: 'Roboto', sans-serif;
+        margin-top: 2rem;
+        font-size: 0.9rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- Dados e Funções (mantidas iguais) ---
 PRIMARY_COLOR = "#2563eb"
 SECONDARY_COLOR = "#f1f5f9"
-LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg"  # Troque pelo logo da instituição
+LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg"  # Substitua pelo logo desejado
 
 TIPOS_DICAS = {
     "TDAH": [
@@ -83,7 +140,7 @@ def gerar_docx(questoes, nome_professor, materia, perfil):
     doc = Document()
     style = doc.styles['Normal']
     font = style.font
-    font.name = 'Arial'
+    font.name = 'Roboto'
     font.size = Pt(14)
 
     doc.add_heading(f"Prova Adaptada – {materia} – {nome_professor}", 0)
@@ -110,90 +167,101 @@ def reset_form():
     st.session_state.pop("prova_processada", None)
     st.session_state.pop("download_ready", None)
 
+# --- Interface Principal ---
 def main():
-    st.markdown(
-        f"""
-        <div style="background:{PRIMARY_COLOR};padding:1.5rem;border-radius:10px;margin-bottom:1.5rem;">
-            <div style="display:flex;align-items:center;">
-                <img src="{LOGO_URL}" alt="Logo" style="height:54px;margin-right:1rem;">
-                <div>
-                    <h2 style="color:white; margin-bottom:0;">Adaptador de Provas para Alunos Neurodivergentes</h2>
-                    <span style="color:white;">Ferramenta para professores - versão beta</span>
-                </div>
-            </div>
+    # Sidebar
+    with st.sidebar:
+        st.image(LOGO_URL, width=100)
+        st.markdown("<h3 style='font-family: Roboto; color: #1e40af;'>Sobre o Adaptador</h3>", unsafe_allow_html=True)
+        st.markdown("""
+            Ferramenta para adaptar provas em PDF para alunos neurodivergentes, com enunciados simplificados e dicas personalizadas.
+            <br><br>
+            <a href='https://seu-site.com' style='color: #2563eb;'>Saiba mais</a>
+        """, unsafe_allow_html=True)
+
+    # Cabeçalho
+    st.markdown("""
+        <div style='text-align: center; margin-bottom: 2rem;'>
+            <h1 class='main-title'>Adaptador de Provas para Alunos Neurodivergentes</h1>
+            <p class='subtitle'>Ferramenta para professores – Versão Beta</p>
         </div>
-        """, unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
+    # Formulário
     with st.container():
-        col1, col2 = st.columns([2,1])
+        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+        st.markdown("### 📋 Informações do Professor")
+        col1, col2 = st.columns([3, 1])
         with col1:
-            nome_professor = st.text_input("👤 Nome do Professor(a)")
-            materia = st.text_input("📘 Matéria")
-
+            nome_professor = st.text_input("👤 Nome do Professor(a)", placeholder="Digite seu nome", help="Insira o nome do professor responsável pela prova.")
+            materia = st.text_input("📘 Matéria", placeholder="Ex.: Matemática", help="Insira o nome da matéria da prova.")
         with col2:
-            st.image(LOGO_URL, width=95)
+            st.image(LOGO_URL, width=80)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if not nome_professor or not materia:
-        st.info("Preencha nome e matéria para continuar")
+        st.info("📌 Preencha o nome do professor e a matéria para continuar.")
         st.stop()
 
     st.divider()
 
     if "prova_processada" not in st.session_state:
-        st.markdown("#### Escolha o tipo de adaptação e envie seu arquivo PDF")
-        perfil = st.selectbox("💡 Tipo de adaptação:", list(TIPOS_DICAS.keys()), key="perfil")
-        arquivo = st.file_uploader("📄 Envie a prova em PDF", type=["pdf"], key="arquivo")
+        st.markdown("### 📄 Configurar Adaptação")
+        perfil = st.selectbox("💡 Tipo de adaptação:", list(TIPOS_DICAS.keys()), help="Escolha o perfil neurodivergente para adaptar a prova.", key="perfil")
+        arquivo = st.file_uploader("📤 Envie a prova em PDF", type=["pdf"], key="arquivo", help="Selecione um arquivo PDF contendo a prova.")
+
         if arquivo:
-            st.toast("Arquivo recebido!", icon="✅")
-            try:
-                pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
-            except Exception as e:
-                st.error(f"Erro ao abrir PDF: {e}")
-                return
+            with st.spinner("⏳ Processando o PDF..."):
+                try:
+                    pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
+                except Exception as e:
+                    st.error(f"❌ Erro ao abrir PDF: {e}")
+                    return
 
-            texto_completo = ""
-            for pagina in pdf:
-                texto_completo += pagina.get_text()
+                texto_completo = ""
+                for pagina in pdf:
+                    texto_completo += pagina.get_text()
 
-            questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
-            if not questoes_raw:
-                st.error("Nenhuma questão encontrada no PDF.")
-                return
+                questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
+                if not questoes_raw:
+                    st.error("❌ Nenhuma questão encontrada no PDF.")
+                    return
 
-            questoes_avaliadas = []
-            for q_texto in questoes_raw:
-                questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
+                questoes_avaliadas = []
+                for q_texto in questoes_raw:
+                    questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
 
-            questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
+                questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
 
-            doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
-            buffer = BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
+                doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
+                buffer = BytesIO()
+                doc.save(buffer)
+                buffer.seek(0)
 
-            st.session_state["prova_processada"] = buffer
-            st.session_state["download_ready"] = True
+                st.session_state["prova_processada"] = buffer
+                st.session_state["download_ready"] = True
 
     if st.session_state.get("download_ready", False):
-        st.success("Prova adaptada gerada com sucesso! 🎉")
-        st.markdown(
-            """
-            <div style="background:#f3f4f6;padding:1rem 2rem;border-radius:10px;">
-                <b>Está pronta para download!</b> Sua prova adaptada está pronta. Se quiser adaptar outra prova, clique abaixo.
+        st.success("🎉 Prova adaptada gerada com sucesso!")
+        st.markdown("""
+            <div class='info-box'>
+                <b>Prova pronta para download!</b> Faça o download do arquivo adaptado ou clique abaixo para adaptar outra prova.
             </div>
-            """, unsafe_allow_html=True
-        )
+        """, unsafe_allow_html=True)
 
         st.download_button(
-            "📥 Baixar Prova Adaptada (.docx)",
+            label="📥 Baixar Prova Adaptada (.docx)",
             data=st.session_state["prova_processada"],
             file_name="prova_adaptada.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            help="Clique para baixar a prova adaptada em formato Word."
         )
 
         st.divider()
-        st.button("🔄 Adaptar outra prova", on_click=reset_form)
+        st.button("🔄 Adaptar outra prova", on_click=reset_form, help="Clique para reiniciar e adaptar uma nova prova.")
+
+    # Rodapé
+    st.markdown("<div class='footer'>Desenvolvido com ❤️ por [Seu Nome] | Versão Beta 2025</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
