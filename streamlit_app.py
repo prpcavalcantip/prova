@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-import fitz  # PyMuPDFhttps://github.com/copilot/c/4137c9b4-4173-40c9-b833-e8df530aa434#copilot-chat-textarea
+import fitz  # PyMuPDF
 from docx import Document
 from docx.shared import Pt
 from io import BytesIO
@@ -37,25 +37,20 @@ def obter_dica(perfil, numero_questao):
     return "Leia com atenção."
 
 def avaliar_enunciado(enunciado):
-    # Avalia a clareza do enunciado: quanto menor, mais direto
-    # Pontuação: quanto menor o texto e menos termos complexos, mais direto
     palavras_complexas = ['explique', 'analise', 'interprete', 'justifique', 'discuta']
     score = len(enunciado)
     for termo in palavras_complexas:
         if termo in enunciado.lower():
-            score += 20  # penaliza termos complexos
+            score += 20
     return score
 
 def simplificar_enunciado_chatgpt(enunciado):
-    # Aqui você pode usar um modelo LLM via API para simplificar, mas o exemplo abaixo é local e só ilustra...
-    # O ideal é substituir por uma chamada à API OpenAI com prompt de simplificação!
-    # Exemplo de simplificação: remove termos complexos e deixa o texto mais direto
     enunciado = re.sub(r'[Ss]egundo o texto,? ?', '', enunciado)
     enunciado = re.sub(r'[Dd]e acordo com o autor,? ?', '', enunciado)
     enunciado = re.sub(r'\s+', ' ', enunciado)
     return enunciado.strip()
 
-def simplificar_questao(texto, numero, perfil):
+def simplificar_questao(texto, perfil):
     texto = re.sub(r'\s+', ' ', texto).strip()
     match = re.match(r'(QUESTÃO \d+ )(.*?)([A-E]\))', texto)
     if not match:
@@ -68,14 +63,12 @@ def simplificar_questao(texto, numero, perfil):
 
     enunciado_simplificado = simplificar_enunciado_chatgpt(enunciado)
     return {
-        "numero": numero,
         "enunciado": enunciado_simplificado,
         "alternativas": alternativas,
-        "dica": obter_dica(perfil, numero),
         "score": avaliar_enunciado(enunciado_simplificado)
     }
 
-def gerar_docx(questoes, nome_professor, materia):
+def gerar_docx(questoes, nome_professor, materia, perfil):
     doc = Document()
     style = doc.styles['Normal']
     font = style.font
@@ -87,15 +80,15 @@ def gerar_docx(questoes, nome_professor, materia):
     doc.add_paragraph(f"Matéria: {materia}", style='Normal')
     doc.add_paragraph("")
 
-    for q in questoes:
-        doc.add_paragraph(f"QUESTÃO {q['numero']}", style='Normal')
+    for i, q in enumerate(questoes, start=1):
+        doc.add_paragraph(f"QUESTÃO {i}", style='Normal')
         doc.add_paragraph(q['enunciado'], style='Normal')
         doc.add_paragraph("")  # Espaço antes das alternativas
 
         for letra, alt in q['alternativas']:
             doc.add_paragraph(f"{letra} {alt.strip()}", style='Normal')
 
-        doc.add_paragraph(f"🧠 DICA: {q['dica']}", style='Normal')
+        doc.add_paragraph(f"🧠 DICA: {obter_dica(perfil, i)}", style='Normal')
         doc.add_paragraph("")
 
     return doc
@@ -131,15 +124,13 @@ def main():
             st.error("Nenhuma questão encontrada no PDF.")
             return
 
-        # Avalia todas as questões e seleciona as 5 mais diretas
         questoes_avaliadas = []
-        for i, q_texto in enumerate(questoes_raw, start=1):
-            questoes_avaliadas.append(simplificar_questao(q_texto, i, perfil))
+        for q_texto in questoes_raw:
+            questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
 
-        # Ordena por score (menor é mais direto/compreensível)
         questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
 
-        doc = gerar_docx(questoes_mais_diretas, nome_professor, materia)
+        doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
@@ -151,11 +142,6 @@ def main():
             file_name="prova_adaptada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-
-        # Mostra as questões escolhidas antes do download
-        st.markdown("### Questões selecionadas:")
-        for q in questoes_mais_diretas:
-            st.markdown(f"**QUESTÃO {q['numero']}**: {q['enunciado']}")
 
         if st.button("🔄 Adaptar outra prova"):
             st.experimental_rerun()
