@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import fitz  # PyMuPDF
 from docx import Document
@@ -7,10 +8,9 @@ import re
 
 from streamlit_oauth import OAuth2Component
 
-# Seu Client ID Google
 GOOGLE_CLIENT_ID = "145586791351-82utkvpiss4gb782a9s2g4717kbscqc4.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = ""  # Preencha aqui se quiser usar secret (opcional para apps públicos)
-REDIRECT_URI = "http://localhost:8501"  # Para uso local
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+REDIRECT_URI = "https://b3asmsyoywxin6rhkia3as.streamlit.app"
 
 TIPOS_DICAS = {
     "TDAH": [
@@ -97,8 +97,7 @@ def login_google():
         authorize_url="https://accounts.google.com/o/oauth2/auth",
         token_url="https://accounts.google.com/o/oauth2/token",
         redirect_uri=REDIRECT_URI,
-        scope=["openid", "email", "profile"],
-        token_introspect_url="https://www.googleapis.com/oauth2/v3/tokeninfo"
+        scope=["openid", "email", "profile"]
     )
 
     result = oauth2.authorize_button("Entrar com Google")
