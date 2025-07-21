@@ -5,11 +5,13 @@ from docx import Document
 from docx.shared import Pt
 from io import BytesIO
 
-st.title("Extrator Adaptativo de Questões de Prova (PDF)")
+# --- TÍTULO E INSTRUÇÕES ---
+st.title("Adaptador de prova inclusivo")
 st.markdown("""
 Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes.
 """)
 
+# --- SELEÇÃO DE NEURODIVERGÊNCIA ---
 opcoes_neuro = [
     "Nenhum",
     "TDAH",
@@ -23,6 +25,19 @@ neuro = st.selectbox("Escolha o perfil neurodivergente para adaptação:", opcoe
 st.write("Após selecionar o perfil, envie o arquivo PDF da prova:")
 
 uploaded_file = st.file_uploader("Envie o arquivo PDF da prova", type="pdf")
+
+def limpa_numero_questao(texto):
+    """
+    Remove padrões do tipo 'QUESTÃO xx', 'Questão xx', ou 'QUESTÃO:'
+    """
+    # Remove 'QUESTÃO', 'Questão' ou variações, seguidos de número
+    texto = re.sub(r'\bQUEST[ÃA]O\s*\d+\b', '', texto)
+    texto = re.sub(r'\bQuest[ãa]o\s*\d+\b', '', texto)
+    texto = re.sub(r'\bQUEST[ÃA]O\b', '', texto)
+    texto = re.sub(r'\bQuest[ãa]o\b', '', texto)
+    texto = re.sub(r'^\s*:', '', texto)
+    texto = texto.strip()
+    return texto
 
 def extrair_questoes(pdf_file):
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
@@ -41,11 +56,11 @@ def extrair_questoes(pdf_file):
             else:
                 enunciado.append(linha.strip())
         if alternativas:
-            # Junta o enunciado em um único parágrafo (sem quebras de linha)
-            enunciado_completo = " ".join([e.strip() for e in enunciado if e])
+            # Junta o enunciado em um único parágrafo, removendo "Questão xx"
+            enunciado_completo = " ".join([limpa_numero_questao(e.strip()) for e in enunciado if e])
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
             questao_completa = enunciado_completo + "\n\n" + alternativas_formatadas
-            if len(alternativas) >= 5:
+            if len(alternativas) >= 5 and enunciado_completo.strip():
                 questoes_formatadas.append(questao_completa)
     return questoes_formatadas[:10]
 
@@ -53,7 +68,7 @@ def gerar_docx(questoes, neuro):
     doc = Document()
     doc.add_heading("Questões Adaptadas da Prova", 0)
     if neuro and neuro != "Nenhum":
-        doc.add_paragraph(f"**Perfil neurodivergente selecionado:** {neuro}")
+        doc.add_paragraph(f"Perfil neurodivergente selecionado: {neuro}")
         doc.add_paragraph("")
     style = doc.styles['Normal']
     style.font.name = 'Arial'
