@@ -6,6 +6,11 @@ from docx.shared import Pt
 from io import BytesIO
 import re
 
+# --- Tema de cores e logo ---
+PRIMARY_COLOR = "#2563eb"
+SECONDARY_COLOR = "#f1f5f9"
+LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg"  # Troque pelo logo da instituição
+
 TIPOS_DICAS = {
     "TDAH": [
         "Leia com calma. Destaque palavras importantes.",
@@ -106,22 +111,41 @@ def reset_form():
     st.session_state.pop("download_ready", None)
 
 def main():
-    st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
+    st.markdown(
+        f"""
+        <div style="background:{PRIMARY_COLOR};padding:1.5rem;border-radius:10px;margin-bottom:1.5rem;">
+            <div style="display:flex;align-items:center;">
+                <img src="{LOGO_URL}" alt="Logo" style="height:54px;margin-right:1rem;">
+                <div>
+                    <h2 style="color:white; margin-bottom:0;">Adaptador de Provas para Alunos Neurodivergentes</h2>
+                    <span style="color:white;">Ferramenta para professores - versão beta</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True
+    )
 
-    nome_professor = st.text_input("Digite seu nome completo")
-    materia = st.text_input("Digite a matéria que você ensina")
+    with st.container():
+        col1, col2 = st.columns([2,1])
+        with col1:
+            nome_professor = st.text_input("👤 Nome do Professor(a)")
+            materia = st.text_input("📘 Matéria")
+
+        with col2:
+            st.image(LOGO_URL, width=95)
 
     if not nome_professor or not materia:
         st.info("Preencha nome e matéria para continuar")
         st.stop()
 
-    st.caption(f"Professor(a): {nome_professor} | Matéria: {materia}")
+    st.divider()
 
     if "prova_processada" not in st.session_state:
-        perfil = st.selectbox("Selecione o tipo de adaptação:", list(TIPOS_DICAS.keys()), key="perfil")
-        arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"], key="arquivo")
+        st.markdown("#### Escolha o tipo de adaptação e envie seu arquivo PDF")
+        perfil = st.selectbox("💡 Tipo de adaptação:", list(TIPOS_DICAS.keys()), key="perfil")
+        arquivo = st.file_uploader("📄 Envie a prova em PDF", type=["pdf"], key="arquivo")
         if arquivo:
-            st.success("Arquivo recebido!")
+            st.toast("Arquivo recebido!", icon="✅")
             try:
                 pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
             except Exception as e:
@@ -152,17 +176,24 @@ def main():
             st.session_state["download_ready"] = True
 
     if st.session_state.get("download_ready", False):
-        st.success("Prova adaptada gerada com sucesso!")
+        st.success("Prova adaptada gerada com sucesso! 🎉")
+        st.markdown(
+            """
+            <div style="background:#f3f4f6;padding:1rem 2rem;border-radius:10px;">
+                <b>Está pronta para download!</b> Sua prova adaptada está pronta. Se quiser adaptar outra prova, clique abaixo.
+            </div>
+            """, unsafe_allow_html=True
+        )
+
         st.download_button(
-            "📥 Baixar Prova Adaptada",
+            "📥 Baixar Prova Adaptada (.docx)",
             data=st.session_state["prova_processada"],
             file_name="prova_adaptada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
-        if st.button("🔄 Adaptar outra prova"):
-            reset_form()
-            st.experimental_rerun() if hasattr(st, "experimental_rerun") else st.rerun()
+        st.divider()
+        st.button("🔄 Adaptar outra prova", on_click=reset_form)
 
 if __name__ == "__main__":
     main()
