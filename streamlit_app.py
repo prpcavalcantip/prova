@@ -33,22 +33,39 @@ def limpa_numero_questao(texto):
     texto = texto.strip()
     return texto
 
+def corrige_questao_truncada(texto):
+    # Remove pontos duplicados e espaços extras
+    texto = re.sub(r'\s*\.\s*\.', '. ', texto)
+    texto = re.sub(r'\s*\.\s*', '. ', texto)
+    texto = re.sub(r'\s{2,}', ' ', texto)
+    # Junta frases separadas
+    frases = re.split(r'(\.|\?|!)', texto)
+    frases_corrigidas = []
+    for i in range(0, len(frases)-1, 2):
+        frase = frases[i].strip()
+        pontuacao = frases[i+1] if i+1 < len(frases) else ''
+        # Corrige letra maiúscula no início
+        if frase:
+            frase = frase[0].upper() + frase[1:]
+        frases_corrigidas.append(frase + pontuacao + ' ')
+    resultado = ''.join(frases_corrigidas).strip()
+    return resultado
+
 def simplifica_enunciado(enunciado):
-    # IA simulada: simplifica, reduz e deixa mais direta a frase
-    # Se quiser usar IA real, pode conectar GPT ou outro modelo
+    # Simplifica e deixa mais direta a frase
     frases = re.split(r'(\.|\?|!)', enunciado)
     simples = []
     for f in frases:
         f2 = f.strip()
-        if f2 and len(f2.split()) < 25:  # frases curtas
+        if f2 and len(f2.split()) < 25:
             simples.append(f2)
     resultado = ' '.join(simples)
-    if len(resultado.split()) < 6:  # se ficou muito curto, volta pro original
+    if len(resultado.split()) < 6:
         return enunciado
     return resultado
 
 def gera_dica(enunciado, alternativas):
-    # IA simulada: gera dica simples de compreensão
+    # Dica gerada por IA simples baseada em palavras-chave
     if "BRICS" in enunciado.upper():
         return "Dica: BRICS é um grupo de países emergentes. Pense no desenvolvimento econômico de cada opção."
     if "população" in enunciado.lower():
@@ -79,13 +96,14 @@ def extrair_questoes(pdf_file):
                 enunciado.append(linha.strip())
         if alternativas:
             enunciado_completo = " ".join([limpa_numero_questao(e.strip()) for e in enunciado if e])
-            enunciado_simples = simplifica_enunciado(enunciado_completo)
+            enunciado_corrigido = corrige_questao_truncada(enunciado_completo)
+            enunciado_simples = simplifica_enunciado(enunciado_corrigido)
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
             dica = gera_dica(enunciado_simples, alternativas_formatadas)
             questao_completa = enunciado_simples + "\n\n" + alternativas_formatadas + "\n\n" + f"Dica: {dica}"
             if len(alternativas) >= 5 and enunciado_simples.strip():
                 questoes_formatadas.append((questao_completa, enunciado_simples))
-    # Critério: Ordena por tamanho do enunciado (as menores e mais diretas vem primeiro)
+    # Ordena por tamanho do enunciado (as menores e mais diretas primeiro)
     questoes_formatadas.sort(key=lambda x: len(x[1]))
     # Retorna 5 mais diretas
     return [q[0] for q in questoes_formatadas[:5]]
