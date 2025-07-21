@@ -5,11 +5,6 @@ from docx import Document
 from docx.shared import Pt
 from io import BytesIO
 import re
-from streamlit_oauth import OAuth2Component
-
-GOOGLE_CLIENT_ID = "145586791351-82utkvpiss4gb782a9s2g4717kbscqc4.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-REDIRECT_URI = "https://b3asmsyoywxin6rhkia3as.streamlit.app"
 
 TIPOS_DICAS = {
     "TDAH": [
@@ -86,49 +81,16 @@ def gerar_docx(questoes, nome_professor, materia):
 
     return doc
 
-def login_google():
-    st.title("🔐 Login do Professor")
-    st.write("Faça login com sua conta Google para continuar:")
-
-    oauth2 = OAuth2Component(
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-        authorize_url="https://accounts.google.com/o/oauth2/auth",
-        token_url="https://accounts.google.com/o/oauth2/token",
-        redirect_uri=REDIRECT_URI,
-        scope=["openid", "email", "profile"]
-    )
-
-    result = oauth2.authorize_button("Entrar com Google")
-    if result and "userinfo" in result:
-        st.session_state['login_ok'] = True
-        st.session_state['nome_professor'] = result['userinfo'].get('name', '')
-        st.session_state['email_professor'] = result['userinfo'].get('email', '')
-        return True
-    st.stop()
-
 def main():
-    if 'login_ok' not in st.session_state or not st.session_state['login_ok']:
-        login_google()
-
-    nome_professor = st.session_state.get('nome_professor', '')
-    email_professor = st.session_state.get('email_professor', '')
-    materia = st.session_state.get('materia', '')
-
-    if not nome_professor:
-        nome_professor = st.text_input("Digite seu nome completo")
-        st.session_state['nome_professor'] = nome_professor
-
-    if not materia:
-        materia = st.text_input("Digite a matéria que você ensina")
-        st.session_state['materia'] = materia
+    nome_professor = st.text_input("Digite seu nome completo")
+    materia = st.text_input("Digite a matéria que você ensina")
 
     if not nome_professor or not materia:
         st.info("Preencha nome e matéria para continuar")
         st.stop()
 
     st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
-    st.caption(f"Professor(a): {nome_professor} | Matéria: {materia} | Email: {email_professor}")
+    st.caption(f"Professor(a): {nome_professor} | Matéria: {materia}")
 
     perfil = st.selectbox("Selecione o tipo de adaptação:", list(TIPOS_DICAS.keys()))
     arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"])
@@ -168,9 +130,6 @@ def main():
         )
 
         if st.button("🔄 Adaptar outra prova"):
-            for key in ['login_ok', 'nome_professor', 'materia', 'email_professor']:
-                if key in st.session_state:
-                    del st.session_state[key]
             st.experimental_rerun()
 
 if __name__ == "__main__":
