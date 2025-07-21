@@ -72,20 +72,17 @@ def gera_dica(enunciado, alternativas):
     return "Dica: Leia com atenção e procure palavras-chave que ajudam a decidir a resposta."
 
 def enunciado_tem_sentido(enunciado, alternativas):
-    if not enunciado or len(enunciado.split()) < 12:
+    # Torne o filtro menos rígido para aceitar questões mais facilmente
+    if not enunciado or len(enunciado.split()) < 5:
         return False
-    palavras_chave = [
-        "qual", "o que", "assinale", "selecione", "segundo", "sobre", "marque", "considerando", "analise", "de acordo com"
-    ]
-    texto_checagem = enunciado.lower()
-    if not any(p in texto_checagem for p in palavras_chave):
-        return False
+    # Remover obrigatoriedade das palavras chave
     padroes_excluir = [
         r'marque v para verdadeiro', r'v para verdadeiro', r'f para falso',
         r'analise as afirmações', r'assinale verdadeiro', r'correlacione',
         r'preencha', r'complete a tabela', r'numere', r'coloque', r'observe as afirmações',
         r'marque v/f', r'v/f', r'tabela abaixo', r'analise as proposições'
     ]
+    texto_checagem = enunciado.lower()
     for padrao in padroes_excluir:
         if re.search(padrao, texto_checagem):
             return False
@@ -129,6 +126,7 @@ def extrair_questoes(pdf_file):
             enunciado_completo = " ".join([limpa_numero_questao(e.strip()) for e in enunciado if e])
             enunciado_corrigido = corrige_questao_truncada(enunciado_completo)
             enunciado_simples = simplifica_enunciado(enunciado_corrigido)
+            # Filtro menos rígido
             if not enunciado_tem_sentido(enunciado_simples, alternativas):
                 continue
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
@@ -192,6 +190,6 @@ if uploaded_file:
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     else:
-        st.warning("Não foi possível extrair questões objetivas e claras. Verifique o arquivo PDF e o padrão das questões.")
+        st.warning("Não foi possível extrair questões objetivas e claras. Tente outro arquivo PDF ou envie o texto da prova aqui para que eu possa ajustar o código.")
 
 st.caption("Desenvolvido com Streamlit, PyMuPDF e python-docx")
