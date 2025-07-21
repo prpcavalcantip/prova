@@ -2,10 +2,29 @@ import streamlit as st
 import fitz  # PyMuPDF
 import re
 from docx import Document
+from docx.shared import Pt
 from io import BytesIO
 
-st.title("Extrator de Questões de Prova (PDF)")
+# --- TÍTULO E INSTRUÇÕES ---
+st.title("Extrator Adaptativo de Questões de Prova (PDF)")
+st.markdown("""
+Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes.
+""")
 
+# --- SELEÇÃO DE NEURODIVERGÊNCIA ---
+opcoes_neuro = [
+    "Nenhum",
+    "TDAH",
+    "Dislexia",
+    "Autismo",
+    "Deficiência visual",
+    "Outro"
+]
+neuro = st.selectbox("Escolha o perfil neurodivergente para adaptação:", opcoes_neuro)
+
+st.write("Após selecionar o perfil, envie o arquivo PDF da prova:")
+
+# --- UPLOAD DO PDF ---
 uploaded_file = st.file_uploader("Envie o arquivo PDF da prova", type="pdf")
 
 def extrair_questoes(pdf_file):
@@ -28,29 +47,38 @@ def extrair_questoes(pdf_file):
         if alternativas:
             # Junta linhas do enunciado com espaço entre elas
             enunciado_completo = "\n".join([e for e in enunciado if e])
-            # Alternativas separadas
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
             questao_completa = enunciado_completo + "\n\n" + alternativas_formatadas
-            # Adiciona questões com pelo menos 5 alternativas
             if len(alternativas) >= 5:
                 questoes_formatadas.append(questao_completa)
+    # Retorna no máximo 10 questões
     return questoes_formatadas[:10]
 
-def gerar_docx(questoes):
+def gerar_docx(questoes, neuro):
     doc = Document()
-    doc.add_heading("Questões Extraídas da Prova", 0)
+    # Título
+    doc.add_heading("Questões Adaptadas da Prova", 0)
+    # Adaptação neurodivergente
+    if neuro and neuro != "Nenhum":
+        doc.add_paragraph(f"**Perfil neurodivergente selecionado:** {neuro}")
+        doc.add_paragraph("")
+    style = doc.styles['Normal']
+    style.font.name = 'Arial'
+    style.font.size = Pt(14)
     for i, q in enumerate(questoes, 1):
         doc.add_heading(f"Questão {i}", level=1)
         partes = q.split('\n\n', 1)
         if len(partes) == 2:
             enunciado, alternativas = partes
             for p in enunciado.split('\n'):
-                doc.add_paragraph(p)
-            # Adiciona cada alternativa como bullet
+                para = doc.add_paragraph(p)
+                para.style = style
             for alt in alternativas.split('\n'):
-                doc.add_paragraph(alt, style='List Bullet')
+                para = doc.add_paragraph(alt, style='List Bullet')
+                para.style = style
         else:
-            doc.add_paragraph(q)
+            para = doc.add_paragraph(q)
+            para.style = style
         doc.add_paragraph("")  # Espaço entre questões
     buffer = BytesIO()
     doc.save(buffer)
@@ -75,11 +103,11 @@ if uploaded_file:
             else:
                 st.markdown(q)
             st.markdown("---")
-        docx_buffer = gerar_docx(questoes)
+        docx_buffer = gerar_docx(questoes, neuro)
         st.download_button(
             label="Baixar questões em DOCX",
             data=docx_buffer,
-            file_name="questoes_extraidas.docx",
+            file_name="questoes_adaptadas.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     else:
