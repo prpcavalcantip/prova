@@ -8,7 +8,7 @@ import re
 from streamlit_oauth import OAuth2Component
 
 GOOGLE_CLIENT_ID = "145586791351-82utkvpiss4gb782a9s2g4717kbscqc4.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")  # O segredo fica nos secrets do Streamlit Cloud!
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 REDIRECT_URI = "https://b3asmsyoywxin6rhkia3as.streamlit.app"
 
 TIPOS_DICAS = {
@@ -163,18 +163,6 @@ def main():
         st.download_button(
             "📥 Baixar Prova Adaptada",
             data=buffer,
-            file_name="prova_adaptada.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-
-        if st.button("🔄 Adaptar outra prova"):
-            for key in ['login_ok', 'nome_professor', 'materia', 'email_professor']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.experimental_rerun()
-
-if __name__ == "__main__":
-    main()
             file_name="prova_adaptada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
