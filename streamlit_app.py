@@ -74,7 +74,6 @@ st.markdown("""
 # --- Dados e Funções ---
 PRIMARY_COLOR = "#1E3A8A"
 SECONDARY_COLOR = "#FBBF24"
-LOGO_URL = "https://drive.google.com/uc?export=download&id=15muqP4pt5XfrK8sEfBnjJI8XWafXFe6-"  # Link direto da logo do Google Drive
 
 TIPOS_DICAS = {
     "TDAH": [
@@ -179,7 +178,6 @@ def reset_form():
 def main():
     # Sidebar
     with st.sidebar:
-        st.image(LOGO_URL, width=120)
         st.markdown("<h3 style='font-family: Roboto; color: #1E3A8A;'>Sobre o Adaptador</h3>", unsafe_allow_html=True)
         st.markdown("""
             Ferramenta para adaptar provas em PDF para alunos neurodivergentes, com enunciados simplificados e dicas personalizadas.
@@ -204,7 +202,7 @@ def main():
             nome_professor = st.text_input("👤 Nome do Professor(a)", placeholder="Digite seu nome", help="Insira o nome do professor responsável pela prova.")
             materia = st.text_input("📘 Matéria", placeholder="Ex.: Matemática", help="Insira o nome da matéria da prova.")
         with col2:
-            st.image(LOGO_URL, width=100)
+            st.empty()  # Substitui st.image(LOGO_URL, width=100) por um espaço vazio
         st.markdown("</div>", unsafe_allow_html=True)
 
     if not nome_professor or not materia:
