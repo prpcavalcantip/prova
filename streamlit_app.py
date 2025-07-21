@@ -74,7 +74,7 @@ st.markdown("""
 # --- Dados e Funções ---
 PRIMARY_COLOR = "#1E3A8A"
 SECONDARY_COLOR = "#FBBF24"
-LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg"  # Substitua pelo link real da logo do Colégio Êxodo
+LOGO_URL = "https://drive.google.com/uc?export=download&id=15muqP4pt5XfrK8sEfBnjJI8XWafXFe6-"  # Link direto da logo do Google Drive
 
 TIPOS_DICAS = {
     "TDAH": [
@@ -102,7 +102,7 @@ TIPOS_DICAS = {
 
 def obter_dica(perfil, numero_questao):
     dicas = TIPOS_DICAS.get(perfil, [])
-    if 0 < numero_questao <= len(dicas):  # Correção: Adicionado <= len(dicas) e :
+    if 0 < numero_questao <= len(dicas):
         return dicas[numero_questao - 1]
     return "Leia com atenção."
 
