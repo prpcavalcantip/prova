@@ -44,7 +44,15 @@ def avaliar_enunciado(enunciado):
             score += 20
     return score
 
+def limpar_enunciado(enunciado):
+    # Remove o prefixo "QUESTÃO XX" se existir
+    enunciado = re.sub(r'^QUESTÃO\s*\d+\s*', '', enunciado, flags=re.IGNORECASE)
+    # Remove outros espaços extras
+    enunciado = re.sub(r'\s+', ' ', enunciado)
+    return enunciado.strip()
+
 def simplificar_enunciado_chatgpt(enunciado):
+    enunciado = limpar_enunciado(enunciado)
     enunciado = re.sub(r'[Ss]egundo o texto,? ?', '', enunciado)
     enunciado = re.sub(r'[Dd]e acordo com o autor,? ?', '', enunciado)
     enunciado = re.sub(r'\s+', ' ', enunciado)
