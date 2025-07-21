@@ -5,13 +5,11 @@ from docx import Document
 from docx.shared import Pt
 from io import BytesIO
 
-# --- TÍTULO E INSTRUÇÕES ---
 st.title("Extrator Adaptativo de Questões de Prova (PDF)")
 st.markdown("""
 Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes.
 """)
 
-# --- SELEÇÃO DE NEURODIVERGÊNCIA ---
 opcoes_neuro = [
     "Nenhum",
     "TDAH",
@@ -24,7 +22,6 @@ neuro = st.selectbox("Escolha o perfil neurodivergente para adaptação:", opcoe
 
 st.write("Após selecionar o perfil, envie o arquivo PDF da prova:")
 
-# --- UPLOAD DO PDF ---
 uploaded_file = st.file_uploader("Envie o arquivo PDF da prova", type="pdf")
 
 def extrair_questoes(pdf_file):
@@ -32,7 +29,6 @@ def extrair_questoes(pdf_file):
     texto = ""
     for page in doc:
         texto += page.get_text()
-    # Divide por padrões de alternativas (A))
     questoes_brutas = re.split(r'\n(?=A\))', texto)
     questoes_formatadas = []
     for bloco in questoes_brutas:
@@ -45,20 +41,17 @@ def extrair_questoes(pdf_file):
             else:
                 enunciado.append(linha.strip())
         if alternativas:
-            # Junta linhas do enunciado com espaço entre elas
-            enunciado_completo = "\n".join([e for e in enunciado if e])
+            # Junta o enunciado em um único parágrafo (sem quebras de linha)
+            enunciado_completo = " ".join([e.strip() for e in enunciado if e])
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
             questao_completa = enunciado_completo + "\n\n" + alternativas_formatadas
             if len(alternativas) >= 5:
                 questoes_formatadas.append(questao_completa)
-    # Retorna no máximo 10 questões
     return questoes_formatadas[:10]
 
 def gerar_docx(questoes, neuro):
     doc = Document()
-    # Título
     doc.add_heading("Questões Adaptadas da Prova", 0)
-    # Adaptação neurodivergente
     if neuro and neuro != "Nenhum":
         doc.add_paragraph(f"**Perfil neurodivergente selecionado:** {neuro}")
         doc.add_paragraph("")
@@ -70,9 +63,8 @@ def gerar_docx(questoes, neuro):
         partes = q.split('\n\n', 1)
         if len(partes) == 2:
             enunciado, alternativas = partes
-            for p in enunciado.split('\n'):
-                para = doc.add_paragraph(p)
-                para.style = style
+            para = doc.add_paragraph(enunciado)
+            para.style = style
             for alt in alternativas.split('\n'):
                 para = doc.add_paragraph(alt, style='List Bullet')
                 para.style = style
@@ -95,8 +87,7 @@ if uploaded_file:
             st.markdown(f"**Questão {i}:**")
             if len(partes) == 2:
                 enunciado, alternativas = partes
-                for p in enunciado.split('\n'):
-                    st.markdown(p)
+                st.markdown(enunciado)
                 st.markdown("")
                 for alt in alternativas.split('\n'):
                     st.markdown(f"- {alt}")
