@@ -267,7 +267,7 @@ def main():
         st.button("🔄 Adaptar outra prova", on_click=reset_form, help="Clique para reiniciar e adaptar uma nova prova.")
 
     # Rodapé
-    st.markdown("<div class='footer'>Desenvolvido com ❤️ por [Seu Nome] | Colégio Êxodo © 2025</div>", unsafe_allow_html=True)
+    st.markdown("<div class='footer'>Desenvolvido com ❤️ por Paulo Cavalcanti Pereira | Colégio Êxodo © 2025</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
