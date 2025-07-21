@@ -75,7 +75,14 @@ def gera_dica(enunciado, alternativas):
 
 def enunciado_tem_sentido(enunciado, alternativas):
     # Filtra enunciados incompletos ou sem sentido (simulação de revisão de professor)
-    if not enunciado or len(enunciado.split()) < 8:
+    if not enunciado or len(enunciado.split()) < 12:
+        return False
+    # Filtra enunciados que não contenham palavras-chave típicas de questões objetivas
+    palavras_chave = [
+        "qual", "o que", "assinale", "selecione", "segundo", "sobre", "marque", "considerando", "analise", "de acordo com"
+    ]
+    texto_checagem = enunciado.lower()
+    if not any(p in texto_checagem for p in palavras_chave):
         return False
     # Filtra questões do tipo "marque V/F", "analise as afirmações", "correlacione", etc
     padroes_excluir = [
@@ -84,19 +91,14 @@ def enunciado_tem_sentido(enunciado, alternativas):
         r'preencha', r'complete a tabela', r'numere', r'coloque', r'observe as afirmações',
         r'marque v/f', r'v/f', r'tabela abaixo', r'analise as proposições'
     ]
-    texto_checagem = enunciado.lower()
     for padrao in padroes_excluir:
         if re.search(padrao, texto_checagem):
             return False
-    # Exclui se alternativas são só letras (tipo "A) V V F F")
+    # Exclui alternativas que são só letras ou padrões V/F
     alt_checagem = ''.join(alternativas).replace(" ", "").upper()
     if re.match(r'^[AVF]+$', alt_checagem.replace(')', '').replace('(', '')):
         return False
-    # Exclui se alternativas são só padrões V/F
     if all(re.match(r'^[A-E]\)\s*[FV\s]+$', alt) for alt in alternativas):
-        return False
-    # Exclui se enunciado pede "analise as afirmações"
-    if "analise as afirmações" in texto_checagem or "assinale verdadeiro" in texto_checagem:
         return False
     return True
 
