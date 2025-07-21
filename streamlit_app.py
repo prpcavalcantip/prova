@@ -5,65 +5,74 @@ from docx.shared import Pt
 from io import BytesIO
 import re
 
-# Configurações de dicas por tipo de neurodivergência
-tipos_dicas = {
-    "TDAH": {
-        1: "Leia com calma. Destaque palavras importantes.",
-        2: "Use setas ou cores para conectar ideias.",
-        3: "Evite distrações: foque uma questão de cada vez.",
-        4: "Grife os conceitos-chave no enunciado.",
-        5: "Relacione a questão com exemplos práticos."
-    },
-    "Dislexia": {
-        1: "Leia devagar. Palavras difíceis podem confundir.",
-        2: "Separe frases longas em partes curtas.",
-        3: "Use régua ou dedo para acompanhar.",
-        4: "Leia em voz baixa para entender melhor.",
-        5: "Marque palavras que aparecem muito."
-    },
-    "TEA": {
-        1: "Observe a estrutura lógica da questão.",
-        2: "Use imagens mentais para entender conceitos.",
-        3: "Evite interpretações subjetivas: vá direto ao que é pedido.",
-        4: "Releia com atenção cada alternativa.",
-        5: "Destaque padrões e repetições."
-    }
+from streamlit_oauth import OAuth2Component
+
+# Seu Client ID Google
+GOOGLE_CLIENT_ID = "145586791351-82utkvpiss4gb782a9s2g4717kbscqc4.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = ""  # Preencha aqui se quiser usar secret (opcional para apps públicos)
+REDIRECT_URI = "http://localhost:8501"  # Para uso local
+
+TIPOS_DICAS = {
+    "TDAH": [
+        "Leia com calma. Destaque palavras importantes.",
+        "Use setas ou cores para conectar ideias.",
+        "Evite distrações: foque uma questão de cada vez.",
+        "Grife os conceitos-chave no enunciado.",
+        "Relacione a questão com exemplos práticos."
+    ],
+    "Dislexia": [
+        "Leia devagar. Palavras difíceis podem confundir.",
+        "Separe frases longas em partes curtas.",
+        "Use régua ou dedo para acompanhar.",
+        "Leia em voz baixa para entender melhor.",
+        "Marque palavras que aparecem muito."
+    ],
+    "TEA": [
+        "Observe a estrutura lógica da questão.",
+        "Use imagens mentais para entender conceitos.",
+        "Evite interpretações subjetivas: vá direto ao que é pedido.",
+        "Releia com atenção cada alternativa.",
+        "Destaque padrões e repetições."
+    ]
 }
 
-# Função para simplificar texto e adicionar dica
+def obter_dica(perfil, numero_questao):
+    dicas = TIPOS_DICAS.get(perfil, [])
+    if 0 < numero_questao <= len(dicas):
+        return dicas[numero_questao - 1]
+    return "Leia com atenção."
+
 def simplificar_questao(texto, numero, perfil):
     texto = re.sub(r'\s+', ' ', texto).strip()
-
-    # Separar enunciado e alternativas
     match = re.match(r'(QUESTÃO \d+ )(.*?)([A-E]\))', texto)
     if not match:
         return {
             "numero": numero,
             "enunciado": texto,
             "alternativas": [],
-            "dica": tipos_dicas.get(perfil, {}).get(numero, "Leia com atenção.")
+            "dica": obter_dica(perfil, numero)
         }
-
     inicio = match.start(3)
     enunciado = texto[:inicio].strip()
     alternativas = re.findall(r'([A-E]\))\s?(.*?)(?=\s[A-E]\)|$)', texto[inicio:])
-
     return {
         "numero": numero,
         "enunciado": enunciado,
         "alternativas": alternativas,
-        "dica": tipos_dicas.get(perfil, {}).get(numero, "Leia com atenção.")
+        "dica": obter_dica(perfil, numero)
     }
 
-# Gerar documento .docx com formatação acessível
-def gerar_docx(questoes):
+def gerar_docx(questoes, nome_professor, materia):
     doc = Document()
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Arial'
     font.size = Pt(14)
 
-    doc.add_heading("Prova Adaptada – Geografia – 3º Ano", 0)
+    doc.add_heading(f"Prova Adaptada – {materia} – {nome_professor}", 0)
+    doc.add_paragraph(f"Professor(a): {nome_professor}", style='Normal')
+    doc.add_paragraph(f"Matéria: {materia}", style='Normal')
+    doc.add_paragraph("")
 
     for q in questoes:
         doc.add_paragraph(f"QUESTÃO {q['numero']}", style='Normal')
@@ -78,54 +87,93 @@ def gerar_docx(questoes):
 
     return doc
 
-# Interface de autenticação simulada (protótipo)
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
-
-if not st.session_state.autenticado:
+def login_google():
     st.title("🔐 Login do Professor")
-    email = st.text_input("Email")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        if email and senha:
-            st.session_state.autenticado = True
-        else:
-            st.warning("Preencha todos os campos.")
-    st.markdown("[Entrar com Google (simulado)]")
-    st.stop()
+    st.write("Faça login com sua conta Google para continuar:")
 
-# App principal
-st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
-
-perfil = st.selectbox("Selecione o tipo de adaptação:", ["TDAH", "Dislexia", "TEA"])
-
-arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"])
-
-if arquivo:
-    st.success("Arquivo recebido!")
-    pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
-    texto_completo = ""
-    for pagina in pdf:
-        texto_completo += pagina.get_text()
-
-    questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
-
-    questoes_simplificadas = []
-    for i, q_texto in enumerate(questoes_raw[:5], start=1):
-        questoes_simplificadas.append(simplificar_questao(q_texto, i, perfil))
-
-    doc = gerar_docx(questoes_simplificadas)
-
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-
-    st.success("Prova adaptada gerada com sucesso!")
-    st.download_button(
-        "📥 Baixar Prova Adaptada",
-        data=buffer,
-        file_name="prova_adaptada.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    oauth2 = OAuth2Component(
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        authorize_url="https://accounts.google.com/o/oauth2/auth",
+        token_url="https://accounts.google.com/o/oauth2/token",
+        redirect_uri=REDIRECT_URI,
+        scope=["openid", "email", "profile"],
+        token_introspect_url="https://www.googleapis.com/oauth2/v3/tokeninfo"
     )
 
-      
+    result = oauth2.authorize_button("Entrar com Google")
+    if result and "userinfo" in result:
+        st.session_state['login_ok'] = True
+        st.session_state['nome_professor'] = result['userinfo'].get('name', '')
+        st.session_state['email_professor'] = result['userinfo'].get('email', '')
+        return True
+    st.stop()
+
+def main():
+    if 'login_ok' not in st.session_state or not st.session_state['login_ok']:
+        login_google()
+
+    nome_professor = st.session_state.get('nome_professor', '')
+    email_professor = st.session_state.get('email_professor', '')
+    materia = st.session_state.get('materia', '')
+
+    if not nome_professor:
+        nome_professor = st.text_input("Digite seu nome completo")
+        st.session_state['nome_professor'] = nome_professor
+
+    if not materia:
+        materia = st.text_input("Digite a matéria que você ensina")
+        st.session_state['materia'] = materia
+
+    if not nome_professor or not materia:
+        st.info("Preencha nome e matéria para continuar")
+        st.stop()
+
+    st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
+    st.caption(f"Professor(a): {nome_professor} | Matéria: {materia} | Email: {email_professor}")
+
+    perfil = st.selectbox("Selecione o tipo de adaptação:", list(TIPOS_DICAS.keys()))
+    arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"])
+
+    if arquivo:
+        st.success("Arquivo recebido!")
+        try:
+            pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
+        except Exception as e:
+            st.error(f"Erro ao abrir PDF: {e}")
+            return
+
+        texto_completo = ""
+        for pagina in pdf:
+            texto_completo += pagina.get_text()
+
+        questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
+        if not questoes_raw:
+            st.error("Nenhuma questão encontrada no PDF.")
+            return
+
+        questoes_simplificadas = []
+        for i, q_texto in enumerate(questoes_raw[:5], start=1):
+            questoes_simplificadas.append(simplificar_questao(q_texto, i, perfil))
+
+        doc = gerar_docx(questoes_simplificadas, nome_professor, materia)
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+
+        st.success("Prova adaptada gerada com sucesso!")
+        st.download_button(
+            "📥 Baixar Prova Adaptada",
+            data=buffer,
+            file_name="prova_adaptada.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+        if st.button("🔄 Adaptar outra prova"):
+            for key in ['login_ok', 'nome_professor', 'materia', 'email_professor']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.experimental_rerun()
+
+if __name__ == "__main__":
+    main()
