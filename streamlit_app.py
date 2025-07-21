@@ -99,7 +99,15 @@ def gerar_docx(questoes, nome_professor, materia, perfil):
 
     return doc
 
+def reset_form():
+    st.session_state.pop("arquivo", None)
+    st.session_state.pop("perfil", None)
+    st.session_state.pop("prova_processada", None)
+    st.session_state.pop("download_ready", None)
+
 def main():
+    st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
+
     nome_professor = st.text_input("Digite seu nome completo")
     materia = st.text_input("Digite a matéria que você ensina")
 
@@ -107,50 +115,54 @@ def main():
         st.info("Preencha nome e matéria para continuar")
         st.stop()
 
-    st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
     st.caption(f"Professor(a): {nome_professor} | Matéria: {materia}")
 
-    perfil = st.selectbox("Selecione o tipo de adaptação:", list(TIPOS_DICAS.keys()))
-    arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"])
+    if "prova_processada" not in st.session_state:
+        perfil = st.selectbox("Selecione o tipo de adaptação:", list(TIPOS_DICAS.keys()), key="perfil")
+        arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"], key="arquivo")
+        if arquivo:
+            st.success("Arquivo recebido!")
+            try:
+                pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
+            except Exception as e:
+                st.error(f"Erro ao abrir PDF: {e}")
+                return
 
-    if arquivo:
-        st.success("Arquivo recebido!")
-        try:
-            pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
-        except Exception as e:
-            st.error(f"Erro ao abrir PDF: {e}")
-            return
+            texto_completo = ""
+            for pagina in pdf:
+                texto_completo += pagina.get_text()
 
-        texto_completo = ""
-        for pagina in pdf:
-            texto_completo += pagina.get_text()
+            questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
+            if not questoes_raw:
+                st.error("Nenhuma questão encontrada no PDF.")
+                return
 
-        questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
-        if not questoes_raw:
-            st.error("Nenhuma questão encontrada no PDF.")
-            return
+            questoes_avaliadas = []
+            for q_texto in questoes_raw:
+                questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
 
-        questoes_avaliadas = []
-        for q_texto in questoes_raw:
-            questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
+            questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
 
-        questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
+            doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
 
-        doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
+            st.session_state["prova_processada"] = buffer
+            st.session_state["download_ready"] = True
 
+    if st.session_state.get("download_ready", False):
         st.success("Prova adaptada gerada com sucesso!")
         st.download_button(
             "📥 Baixar Prova Adaptada",
-            data=buffer,
+            data=st.session_state["prova_processada"],
             file_name="prova_adaptada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
         if st.button("🔄 Adaptar outra prova"):
-            st.rerun()
+            reset_form()
+            st.experimental_rerun() if hasattr(st, "experimental_rerun") else st.rerun()
 
 if __name__ == "__main__":
     main()
