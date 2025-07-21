@@ -45,9 +45,7 @@ def avaliar_enunciado(enunciado):
     return score
 
 def limpar_enunciado(enunciado):
-    # Remove o prefixo "QUESTÃO XX" se existir
     enunciado = re.sub(r'^QUESTÃO\s*\d+\s*', '', enunciado, flags=re.IGNORECASE)
-    # Remove outros espaços extras
     enunciado = re.sub(r'\s+', ' ', enunciado)
     return enunciado.strip()
 
@@ -152,7 +150,7 @@ def main():
         )
 
         if st.button("🔄 Adaptar outra prova"):
-            st.experimental_rerun()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
