@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-import fitz  # PyMuPDF
+import fitz  # PyMuPDFhttps://github.com/copilot/c/4137c9b4-4173-40c9-b833-e8df530aa434#copilot-chat-textarea
 from docx import Document
 from docx.shared import Pt
 from io import BytesIO
@@ -36,24 +36,43 @@ def obter_dica(perfil, numero_questao):
         return dicas[numero_questao - 1]
     return "Leia com atenção."
 
+def avaliar_enunciado(enunciado):
+    # Avalia a clareza do enunciado: quanto menor, mais direto
+    # Pontuação: quanto menor o texto e menos termos complexos, mais direto
+    palavras_complexas = ['explique', 'analise', 'interprete', 'justifique', 'discuta']
+    score = len(enunciado)
+    for termo in palavras_complexas:
+        if termo in enunciado.lower():
+            score += 20  # penaliza termos complexos
+    return score
+
+def simplificar_enunciado_chatgpt(enunciado):
+    # Aqui você pode usar um modelo LLM via API para simplificar, mas o exemplo abaixo é local e só ilustra...
+    # O ideal é substituir por uma chamada à API OpenAI com prompt de simplificação!
+    # Exemplo de simplificação: remove termos complexos e deixa o texto mais direto
+    enunciado = re.sub(r'[Ss]egundo o texto,? ?', '', enunciado)
+    enunciado = re.sub(r'[Dd]e acordo com o autor,? ?', '', enunciado)
+    enunciado = re.sub(r'\s+', ' ', enunciado)
+    return enunciado.strip()
+
 def simplificar_questao(texto, numero, perfil):
     texto = re.sub(r'\s+', ' ', texto).strip()
     match = re.match(r'(QUESTÃO \d+ )(.*?)([A-E]\))', texto)
     if not match:
-        return {
-            "numero": numero,
-            "enunciado": texto,
-            "alternativas": [],
-            "dica": obter_dica(perfil, numero)
-        }
-    inicio = match.start(3)
-    enunciado = texto[:inicio].strip()
-    alternativas = re.findall(r'([A-E]\))\s?(.*?)(?=\s[A-E]\)|$)', texto[inicio:])
+        enunciado = texto
+        alternativas = []
+    else:
+        inicio = match.start(3)
+        enunciado = texto[:inicio].strip()
+        alternativas = re.findall(r'([A-E]\))\s?(.*?)(?=\s[A-E]\)|$)', texto[inicio:])
+
+    enunciado_simplificado = simplificar_enunciado_chatgpt(enunciado)
     return {
         "numero": numero,
-        "enunciado": enunciado,
+        "enunciado": enunciado_simplificado,
         "alternativas": alternativas,
-        "dica": obter_dica(perfil, numero)
+        "dica": obter_dica(perfil, numero),
+        "score": avaliar_enunciado(enunciado_simplificado)
     }
 
 def gerar_docx(questoes, nome_professor, materia):
@@ -112,11 +131,15 @@ def main():
             st.error("Nenhuma questão encontrada no PDF.")
             return
 
-        questoes_simplificadas = []
-        for i, q_texto in enumerate(questoes_raw[:5], start=1):
-            questoes_simplificadas.append(simplificar_questao(q_texto, i, perfil))
+        # Avalia todas as questões e seleciona as 5 mais diretas
+        questoes_avaliadas = []
+        for i, q_texto in enumerate(questoes_raw, start=1):
+            questoes_avaliadas.append(simplificar_questao(q_texto, i, perfil))
 
-        doc = gerar_docx(questoes_simplificadas, nome_professor, materia)
+        # Ordena por score (menor é mais direto/compreensível)
+        questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
+
+        doc = gerar_docx(questoes_mais_diretas, nome_professor, materia)
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
@@ -128,6 +151,11 @@ def main():
             file_name="prova_adaptada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
+        # Mostra as questões escolhidas antes do download
+        st.markdown("### Questões selecionadas:")
+        for q in questoes_mais_diretas:
+            st.markdown(f"**QUESTÃO {q['numero']}**: {q['enunciado']}")
 
         if st.button("🔄 Adaptar outra prova"):
             st.experimental_rerun()
