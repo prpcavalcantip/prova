@@ -1,13 +1,13 @@
-import streamlit as st
-import fitz
+iimport streamlit as st
+import fitz  # PyMuPDF
 import re
 from docx import Document
 from docx.shared import Pt
 from io import BytesIO
 
-st.title("Adaptador de prova inclusivo")
+st.title("Adaptador de Provas Inclusivo")
 st.markdown("""
-Bem-vindo! Este aplicativo extrai questões de provas em PDF e adapta para diferentes perfis neurodivergentes, filtrando apenas questões objetivas e claras.
+Este aplicativo extrai e adapta questões objetivas de provas em PDF para facilitar a inclusão de neurodivergentes.
 """)
 
 opcoes_neuro = [
@@ -19,8 +19,6 @@ opcoes_neuro = [
     "Outro"
 ]
 neuro = st.selectbox("Escolha o perfil neurodivergente para adaptação:", opcoes_neuro)
-
-st.write("Após selecionar o perfil, envie o arquivo PDF da prova:")
 
 uploaded_file = st.file_uploader("Envie o arquivo PDF da prova", type="pdf")
 
@@ -74,17 +72,14 @@ def gera_dica(enunciado, alternativas):
     return "Dica: Leia com atenção e procure palavras-chave que ajudam a decidir a resposta."
 
 def enunciado_tem_sentido(enunciado, alternativas):
-    # Filtra enunciados incompletos ou sem sentido (simulação de revisão de professor)
     if not enunciado or len(enunciado.split()) < 12:
         return False
-    # Filtra enunciados que não contenham palavras-chave típicas de questões objetivas
     palavras_chave = [
         "qual", "o que", "assinale", "selecione", "segundo", "sobre", "marque", "considerando", "analise", "de acordo com"
     ]
     texto_checagem = enunciado.lower()
     if not any(p in texto_checagem for p in palavras_chave):
         return False
-    # Filtra questões do tipo "marque V/F", "analise as afirmações", "correlacione", etc
     padroes_excluir = [
         r'marque v para verdadeiro', r'v para verdadeiro', r'f para falso',
         r'analise as afirmações', r'assinale verdadeiro', r'correlacione',
@@ -94,7 +89,6 @@ def enunciado_tem_sentido(enunciado, alternativas):
     for padrao in padroes_excluir:
         if re.search(padrao, texto_checagem):
             return False
-    # Exclui alternativas que são só letras ou padrões V/F
     alt_checagem = ''.join(alternativas).replace(" ", "").upper()
     if re.match(r'^[AVF]+$', alt_checagem.replace(')', '').replace('(', '')):
         return False
@@ -107,9 +101,22 @@ def extrair_questoes(pdf_file):
     texto = ""
     for page in doc:
         texto += page.get_text()
-    questoes_brutas = re.split(r'\n(?=A\))', texto)
+    linhas = texto.split('\n')
+    blocos = []
+    bloco_atual = []
+    for linha in linhas:
+        if re.match(r'^[A-E]\)', linha.strip()):
+            bloco_atual.append(linha.strip())
+        elif len(bloco_atual) > 0 and not re.match(r'^[A-E]\)', linha.strip()):
+            bloco_atual.append(linha.strip())
+        elif len(linha.strip()) > 0:
+            if bloco_atual:
+                blocos.append('\n'.join(bloco_atual))
+            bloco_atual = [linha.strip()]
+    if bloco_atual:
+        blocos.append('\n'.join(bloco_atual))
     questoes_formatadas = []
-    for bloco in questoes_brutas:
+    for bloco in blocos:
         partes = bloco.strip().split('\n')
         enunciado = []
         alternativas = []
@@ -122,7 +129,6 @@ def extrair_questoes(pdf_file):
             enunciado_completo = " ".join([limpa_numero_questao(e.strip()) for e in enunciado if e])
             enunciado_corrigido = corrige_questao_truncada(enunciado_completo)
             enunciado_simples = simplifica_enunciado(enunciado_corrigido)
-            # Validação de sentido e exclusão de questões incompletas
             if not enunciado_tem_sentido(enunciado_simples, alternativas):
                 continue
             alternativas_formatadas = '\n'.join([alt for alt in alternativas if alt])
