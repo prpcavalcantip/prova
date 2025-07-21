@@ -1,12 +1,13 @@
+
 import streamlit as st
 import fitz  # PyMuPDF
 from docx import Document
 from docx.shared import Pt
+from io import BytesIO
 import re
 
-# Função para simplificar o texto e gerar dica
+# Função para simplificar e adaptar a questão com dica
 def simplificar_questao(texto, numero):
-    # Simplificação simples: encurtar e deixar mais direto
     texto = re.sub(r'\s+', ' ', texto).strip()
 
     dicas_padrao = {
@@ -25,7 +26,7 @@ def simplificar_questao(texto, numero):
         "dica": dica
     }
 
-# Função para criar .docx
+# Função para gerar o .docx adaptado
 def gerar_docx(questoes):
     doc = Document()
     style = doc.styles['Normal']
@@ -43,7 +44,7 @@ def gerar_docx(questoes):
 
     return doc
 
-# Streamlit interface
+# Interface do Streamlit
 st.title("🧠 Adaptador de Provas para Alunos Neurodivergentes")
 
 arquivo = st.file_uploader("Envie a prova em PDF", type=["pdf"])
@@ -55,7 +56,7 @@ if arquivo:
     for pagina in pdf:
         texto_completo += pagina.get_text()
 
-    # Seleciona as 5 primeiras questões encontradas (simples)
+    # Extrair questões a partir do padrão "QUESTÃO"
     questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
 
     questoes_simplificadas = []
@@ -64,9 +65,17 @@ if arquivo:
 
     doc = gerar_docx(questoes_simplificadas)
 
-    # Salvar arquivo
-    caminho = "/mnt/data/prova_adaptada.docx"
-    doc.save(caminho)
-    st.success("Prova adaptada gerada com sucesso!")
-    st.download_button("📥 Baixar Prova Adaptada", data=open(caminho, "rb"), file_name="prova_adaptada.docx")
+    # Salvar em memória
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
 
+    st.success("Prova adaptada gerada com sucesso!")
+    st.download_button(
+        "📥 Baixar Prova Adaptada",
+        data=buffer,
+        file_name="prova_adaptada.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    
