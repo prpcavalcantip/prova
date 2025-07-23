@@ -3,6 +3,13 @@ import openai
 import os
 import re
 
+# Defina o page_config logo na primeira linha após os imports!
+st.set_page_config(
+    page_title="Minha Conversa com Jesus",
+    page_icon="✝️",
+    layout="centered"
+)
+
 # --------------------------
 # BLOCO DE AUTENTICAÇÃO BÁSICA
 # --------------------------
@@ -16,11 +23,6 @@ if "usuario_logado" not in st.session_state:
     st.session_state["usuario_logado"] = None
 
 def login():
-    st.set_page_config(
-        page_title="Minha Conversa com Jesus",
-        page_icon="✝️",
-        layout="centered"
-    )
     st.markdown(
         """
         <div style='text-align: center; font-size: 2.2em; margin-top: 40px; margin-bottom: 30px; color: #205081; font-weight:700'>
