@@ -6,7 +6,6 @@ import re
 # --------------------------
 # BLOCO DE AUTENTICAÇÃO BÁSICA
 # --------------------------
-# Dicionário de usuários: email -> senha
 usuarios = {
     "usuario1@email.com": "senha123",
     "usuario2@email.com": "minhasenha",
@@ -18,8 +17,6 @@ if "usuario_logado" not in st.session_state:
 def login():
     st.set_page_config(
         page_title="Minha Conversa com Jesus",
-        # Para favicon personalizado, coloque 'favicon.png' na pasta do app e descomente a linha abaixo:
-        # page_icon="favicon.png",
         page_icon="✝️",
         layout="centered"
     )
@@ -42,12 +39,9 @@ def login():
         else:
             st.error("E-mail ou senha incorretos.")
 
-# Se não estiver logado, mostra tela de login e para o app
 if not st.session_state["usuario_logado"]:
     login()
     st.stop()
-# --------------------------
-# FIM DO BLOCO DE AUTENTICAÇÃO
 # --------------------------
 
 # Paleta de cores suaves
@@ -101,7 +95,6 @@ st.markdown(f"""
         box-shadow: 0 2px 10px rgba(32,80,129,0.06);
     }}
     .stTextInput > div > div > input {{
-        /* Removido customizações problemáticas para mobile */
         font-size: 1.1em;
     }}
     .stButton button {{
@@ -172,7 +165,6 @@ def formatar_sugestoes(texto):
             novas_linhas.append(linha)
     return "\n".join(novas_linhas)
 
-# Função para gerar o devocional via OpenAI (nova API)
 def gerar_devocional(sentimento):
     prompt = f"""
 Você é um assistente espiritual cristão. Quando alguém compartilha como está se sentindo, responda com um devocional mais aprofundado, acolhedor e reflexivo. Siga esta estrutura, escrevendo sempre em português:
@@ -209,7 +201,6 @@ Agora gere o devocional para: "{sentimento}"
     texto = response.choices[0].message.content.strip()
     return texto
 
-# Função para salvar histórico local
 def salvar_historico(sentimento, devocional):
     try:
         with open("historico_devocional.txt", "a", encoding="utf-8") as f:
@@ -217,7 +208,6 @@ def salvar_historico(sentimento, devocional):
     except Exception as e:
         st.warning("Não foi possível salvar o histórico.")
 
-# Botão para gerar devocional
 if st.button("Gerar Devocional") and feeling:
     with st.spinner('Gerando seu devocional...'):
         devocional = gerar_devocional(feeling)
@@ -233,9 +223,14 @@ if st.button("Gerar Devocional") and feeling:
         )
         salvar_historico(feeling, devocional)
 
-# Rodapé
 st.markdown(
     """
+    <div style='text-align: center; font-size: 1em; margin-top: 50px; color: #6c757d;'>
+        © 2025 Minha Conversa com Jesus | Feito com Streamlit
+    </div>
+    """,
+    unsafe_allow_html=True
+)
     <div style='text-align: center; font-size: 1em; margin-top: 50px; color: #6c757d;'>
         © 2025 Minha Conversa com Jesus | Feito com Streamlit
     </div>
