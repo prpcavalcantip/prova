@@ -1,273 +1,244 @@
-import os
 import streamlit as st
-import fitz  # PyMuPDF
-from docx import Document
-from docx.shared import Pt
-from io import BytesIO
+import openai
+import os
 import re
 
-# --- Configuração do Tema ---
-st.set_page_config(page_title="Adaptador de Provas", layout="wide")
+# --------------------------
+# BLOCO DE AUTENTICAÇÃO BÁSICA
+# --------------------------
+# Dicionário de usuários: email -> senha
+usuarios = {
+    "usuario1@email.com": "senha123",
+    "usuario2@email.com": "minhasenha",
+}
 
-# --- Estilização CSS ---
-st.markdown("""
+if "usuario_logado" not in st.session_state:
+    st.session_state["usuario_logado"] = None
+
+def login():
+    st.set_page_config(
+        page_title="Minha Conversa com Jesus",
+        # Para favicon personalizado, coloque 'favicon.png' na pasta do app e descomente a linha abaixo:
+        # page_icon="favicon.png",
+        page_icon="✝️",
+        layout="centered"
+    )
+    st.markdown(
+        """
+        <div style='text-align: center; font-size: 2.2em; margin-top: 40px; margin-bottom: 30px; color: #205081; font-weight:700'>
+            Minha Conversa com Jesus
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.title("Área de Login")
+    email = st.text_input("E-mail")
+    senha = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if email in usuarios and usuarios[email] == senha:
+            st.session_state["usuario_logado"] = email
+            st.success("Login realizado com sucesso!")
+            st.experimental_rerun()
+        else:
+            st.error("E-mail ou senha incorretos.")
+
+# Se não estiver logado, mostra tela de login e para o app
+if not st.session_state["usuario_logado"]:
+    login()
+    st.stop()
+# --------------------------
+# FIM DO BLOCO DE AUTENTICAÇÃO
+# --------------------------
+
+# Paleta de cores suaves
+PRIMARY_BG = "#e9f2fa"
+CARD_BG = "#ffffff"
+CARD_BORDER = "#b3c6e0"
+PRIMARY_COLOR = "#205081"
+BUTTON_BG = "#205081"
+BUTTON_TEXT = "#fff"
+TEXT_COLOR = "#24292f"
+SUGGESTION_BG = "#f0f6fb"
+
+# CSS customizado para interface amigável
+st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-    .main-title {
-        font-family: 'Roboto', sans-serif;
-        font-size: 2.5rem;
-        color: #1E3A8A;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-    .subtitle {
-        font-family: 'Roboto', sans-serif;
-        font-size: 1rem;
-        color: #64748B;
-    }
-    .stButton > button {
-        background: linear-gradient(90deg, #FBBF24, #F59E0B);
-        color: #1E3A8A;
-        border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-family: 'Roboto', sans-serif;
-        font-size: 1rem;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
-    }
-    .stButton > button:hover {
-        transform: scale(1.05);
-        background: linear-gradient(90deg, #F59E0B, #FBBF24);
-    }
-    .stTextInput > div > input {
-        border-radius: 8px;
-        font-family: 'Roboto', sans-serif;
-        border: 2px solid #1E3A8A;
-    }
-    .stSelectbox > div > select {
-        border-radius: 8px;
-        font-family: 'Roboto', sans-serif;
-        border: 2px solid #1E3A8A;
-    }
-    .stFileUploader > div {
-        border-radius: 8px;
-        border: 2px dashed #1E3A8A;
-    }
-    .info-box {
-        background: linear-gradient(135deg, #F3F4F6, #FFFFFF);
-        padding: 1rem;
-        border-radius: 8px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    .footer {
+    body {{
+        background-color: {PRIMARY_BG} !important;
+    }}
+    .main .block-container {{
+        background: {PRIMARY_BG} !important;
+        color: {TEXT_COLOR};
+    }}
+    .title-div {{
+        background: {CARD_BG};
+        border-radius: 18px;
+        padding: 18px 10px 12px 10px;
+        margin-bottom: 18px;
+        border: 1.5px solid {CARD_BORDER};
+        box-shadow: 0 2px 8px rgba(32,80,129,0.08);
+    }}
+    .input-div {{
         text-align: center;
-        color: #64748B;
-        font-family: 'Roboto', sans-serif;
-        margin-top: 2rem;
-        font-size: 0.9rem;
-    }
+        font-size: 1.25em;
+        margin-bottom: 20px;
+        color: {PRIMARY_COLOR};
+        font-weight: 500;
+    }}
+    .custom-card {{
+        background-color: {CARD_BG};
+        border: 1.5px solid {CARD_BORDER};
+        border-radius: 16px;
+        padding: 24px;
+        margin-top: 24px;
+        text-align: left;
+        max-width: 540px;
+        margin-left: auto;
+        margin-right: auto;
+        font-size: 1.13em;
+        line-height: 1.7;
+        color: {TEXT_COLOR};
+        box-shadow: 0 2px 10px rgba(32,80,129,0.06);
+    }}
+    .stTextInput > div > div > input {{
+        /* Removido customizações problemáticas para mobile */
+        font-size: 1.1em;
+    }}
+    .stButton button {{
+        color: {BUTTON_TEXT};
+        background: linear-gradient(90deg,{BUTTON_BG} 70%,#3e82c4 100%);
+        border: 0px;
+        border-radius: 8px;
+        padding: 0.6em 1.5em;
+        font-size: 1.1em;
+        font-weight: 600;
+        margin-bottom: 10px;
+        transition: 0.2s;
+    }}
+    .stButton button:hover {{
+        filter: brightness(1.08);
+        border: 1.5px solid {PRIMARY_COLOR};
+    }}
+    strong {{
+        color: {PRIMARY_COLOR};
+        font-weight: 700;
+    }}
+    .suggestion {{
+        background: {SUGGESTION_BG};
+        border-left: 4px solid {PRIMARY_COLOR};
+        border-radius: 7px;
+        padding: 7px 15px 7px 14px;
+        margin: 6px 0 0 0;
+        font-size: 1em;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- Dados e Funções ---
-PRIMARY_COLOR = "#1E3A8A"
-SECONDARY_COLOR = "#FBBF24"
+# Título para usuários autenticados
+st.markdown(
+    f"""
+    <div class='title-div'>
+        <h1 style='text-align: center; font-size: 2.5em; margin-bottom: 0; color: {PRIMARY_COLOR};'>
+            Minha Conversa com Jesus
+        </h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-TIPOS_DICAS = {
-    "TDAH": [
-        "Leia com calma. Destaque palavras importantes.",
-        "Use setas ou cores para conectar ideias.",
-        "Evite distrações: foque uma questão de cada vez.",
-        "Grife os conceitos-chave no enunciado.",
-        "Relacione a questão com exemplos práticos."
-    ],
-    "Dislexia": [
-        "Leia devagar. Palavras difíceis podem confundir.",
-        "Separe frases longas em partes curtas.",
-        "Use régua ou dedo para acompanhar.",
-        "Leia em voz baixa para entender melhor.",
-        "Marque palavras que aparecem muito."
-    ],
-    "TEA": [
-        "Observe a estrutura lógica da questão.",
-        "Use imagens mentais para entender conceitos.",
-        "Evite interpretações subjetivas: vá direto ao que é pedido.",
-        "Releia com atenção cada alternativa.",
-        "Destaque padrões e repetições."
-    ]
-}
+# Campo de entrada
+st.markdown(
+    f"""
+    <div class='input-div'>
+        Como você está se sentindo hoje?
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+feeling = st.text_input("", max_chars=120)
 
-def obter_dica(perfil, numero_questao):
-    dicas = TIPOS_DICAS.get(perfil, [])
-    if 0 < numero_questao <= len(dicas):
-        return dicas[numero_questao - 1]
-    return "Leia com atenção."
+def formatar_negrito(texto):
+    # Substitui **texto** por <strong>texto</strong>
+    return re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', texto)
 
-def avaliar_enunciado(enunciado):
-    palavras_complexas = ['explique', 'analise', 'interprete', 'justifique', 'discuta']
-    score = len(enunciado)
-    for termo in palavras_complexas:
-        if termo in enunciado.lower():
-            score += 20
-    return score
+def formatar_sugestoes(texto):
+    # Torna sugestões práticas mais destacadas
+    linhas = texto.split('\n')
+    novas_linhas = []
+    for linha in linhas:
+        if linha.strip().startswith('•'):
+            novas_linhas.append(f"<div class='suggestion'>{linha.strip()}</div>")
+        else:
+            novas_linhas.append(linha)
+    return "\n".join(novas_linhas)
 
-def limpar_enunciado(enunciado):
-    enunciado = re.sub(r'^QUESTÃO\s*\d+\s*', '', enunciado, flags=re.IGNORECASE)
-    enunciado = re.sub(r'\s+', ' ', enunciado)
-    return enunciado.strip()
+# Função para gerar o devocional via OpenAI (nova API)
+def gerar_devocional(sentimento):
+    prompt = f"""
+Você é um assistente espiritual cristão. Quando alguém compartilha como está se sentindo, responda com um devocional mais aprofundado, acolhedor e reflexivo. Siga esta estrutura, escrevendo sempre em português:
 
-def simplificar_enunciado_chatgpt(enunciado):
-    enunciado = limpar_enunciado(enunciado)
-    enunciado = re.sub(r'[Ss]egundo o texto,? ?', '', enunciado)
-    enunciado = re.sub(r'[Dd]e acordo com o autor,? ?', '', enunciado)
-    enunciado = re.sub(r'\s+', ' ', enunciado)
-    return enunciado.strip()
+1. Palavra de Jesus: Escolha um versículo dito por Jesus nos Evangelhos que se relacione com o sentimento: "{sentimento}". Cite o livro e o versículo.
+2. Reflexão: Escreva uma reflexão mais profunda (aprox. 2-3 parágrafos) conectando o versículo ao sentimento relatado, mostrando como as palavras de Jesus podem transformar a situação, trazendo consolo, direção e esperança.
+3. Oração: Escreva uma oração personalizada, baseada no sentimento e na Palavra escolhida, convidando Jesus para a situação da pessoa.
+4. Sugestões práticas para o dia: Ofereça pelo menos duas sugestões simples, concretas e atuais para a pessoa viver aquela Palavra de Jesus no dia de hoje (por exemplo: separar um tempo de silêncio, enviar uma mensagem para alguém, anotar motivos de gratidão, etc).
 
-def simplificar_questao(texto, perfil):
-    texto = re.sub(r'\s+', ' ', texto).strip()
-    match = re.match(r'(QUESTÃO \d+ )(.*?)([A-E]\))', texto)
-    if not match:
-        enunciado = texto
-        alternativas = []
-    else:
-        inicio = match.start(3)
-        enunciado = texto[:inicio].strip()
-        alternativas = re.findall(r'([A-E]\))\s?(.*?)(?=\s[A-E]\)|$)', texto[inicio:])
+Formate a resposta em blocos bem separados e com títulos marcados com **, assim:
 
-    enunciado_simplificado = simplificar_enunciado_chatgpt(enunciado)
-    return {
-        "enunciado": enunciado_simplificado,
-        "alternativas": alternativas,
-        "score": avaliar_enunciado(enunciado_simplificado)
-    }
+**Palavra de Jesus:**  
+<versículo>
 
-def gerar_docx(questoes, nome_professor, materia, perfil):
-    doc = Document()
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Roboto'
-    font.size = Pt(14)
+**Reflexão:**  
+<reflexão>
 
-    doc.add_heading(f"Prova Adaptada – {materia} – {nome_professor}", 0)
-    doc.add_paragraph(f"Professor(a): {nome_professor}", style='Normal')
-    doc.add_paragraph(f"Matéria: {materia}", style='Normal')
-    doc.add_paragraph("")
+**Oração:**  
+<oração>
 
-    for i, q in enumerate(questoes, start=1):
-        doc.add_paragraph(f"QUESTÃO {i}", style='Normal')
-        doc.add_paragraph(q['enunciado'], style='Normal')
-        doc.add_paragraph("")  # Espaço antes das alternativas
+**Sugestões práticas para o dia:**  
+• <sugestão 1>  
+• <sugestão 2>
 
-        for letra, alt in q['alternativas']:
-            doc.add_paragraph(f"{letra} {alt.strip()}", style='Normal')
+Agora gere o devocional para: "{sentimento}"
+"""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=700,
+        temperature=0.7,
+    )
+    texto = response.choices[0].message.content.strip()
+    return texto
 
-        doc.add_paragraph(f"🧠 DICA: {obter_dica(perfil, i)}", style='Normal')
-        doc.add_paragraph("")
+# Função para salvar histórico local
+def salvar_historico(sentimento, devocional):
+    try:
+        with open("historico_devocional.txt", "a", encoding="utf-8") as f:
+            f.write(f"\n---\nSentimento: {sentimento}\n{devocional}\n")
+    except Exception as e:
+        st.warning("Não foi possível salvar o histórico.")
 
-    return doc
-
-def reset_form():
-    st.session_state.pop("arquivo", None)
-    st.session_state.pop("perfil", None)
-    st.session_state.pop("prova_processada", None)
-    st.session_state.pop("download_ready", None)
-
-# --- Interface Principal ---
-def main():
-    # Sidebar
-    with st.sidebar:
-        st.markdown("<h3 style='font-family: Roboto; color: #1E3A8A;'>Sobre o Adaptador</h3>", unsafe_allow_html=True)
-        st.markdown("""
-            Ferramenta para adaptar provas em PDF para alunos neurodivergentes, com enunciados simplificados e dicas personalizadas.
-            <br><br>
-            <a href='https://colegioexodo.com' style='color: #FBBF24;'>Saiba mais</a>
-        """, unsafe_allow_html=True)
-
-    # Cabeçalho
-    st.markdown("""
-        <div style='text-align: center; margin-bottom: 2rem;'>
-            <h1 class='main-title'>Adaptador de Provas Colégio Êxodo</h1>
-            <p class='subtitle'>Ferramenta para professores – Versão Beta</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Formulário
-    with st.container():
-        st.markdown("<div class='info-box'>", unsafe_allow_html=True)
-        st.markdown("### 📋 Informações do Professor")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            nome_professor = st.text_input("👤 Nome do Professor(a)", placeholder="Digite seu nome", help="Insira o nome do professor responsável pela prova.")
-            materia = st.text_input("📘 Matéria", placeholder="Ex.: Matemática", help="Insira o nome da matéria da prova.")
-        with col2:
-            st.empty()  # Substitui st.image(LOGO_URL, width=100) por um espaço vazio
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if not nome_professor or not materia:
-        st.info("📌 Preencha o nome do professor e a matéria para continuar.")
-        st.stop()
-
-    st.divider()
-
-    if "prova_processada" not in st.session_state:
-        st.markdown("### 📄 Configurar Adaptação")
-        perfil = st.selectbox("💡 Tipo de adaptação:", list(TIPOS_DICAS.keys()), help="Escolha o perfil neurodivergente para adaptar a prova.", key="perfil")
-        arquivo = st.file_uploader("📤 Envie a prova em PDF", type=["pdf"], key="arquivo", help="Selecione um arquivo PDF contendo a prova.")
-
-        if arquivo:
-            with st.spinner("⏳ Processando o PDF..."):
-                try:
-                    pdf = fitz.open(stream=arquivo.read(), filetype="pdf")
-                except Exception as e:
-                    st.error(f"❌ Erro ao abrir PDF: {e}")
-                    return
-
-                texto_completo = ""
-                for pagina in pdf:
-                    texto_completo += pagina.get_text()
-
-                questoes_raw = re.findall(r'QUESTÃO \d+.*?(?=QUESTÃO \d+|$)', texto_completo, flags=re.DOTALL)
-                if not questoes_raw:
-                    st.error("❌ Nenhuma questão encontrada no PDF.")
-                    return
-
-                questoes_avaliadas = []
-                for q_texto in questoes_raw:
-                    questoes_avaliadas.append(simplificar_questao(q_texto, perfil))
-
-                questoes_mais_diretas = sorted(questoes_avaliadas, key=lambda q: q['score'])[:5]
-
-                doc = gerar_docx(questoes_mais_diretas, nome_professor, materia, perfil)
-                buffer = BytesIO()
-                doc.save(buffer)
-                buffer.seek(0)
-
-                st.session_state["prova_processada"] = buffer
-                st.session_state["download_ready"] = True
-
-    if st.session_state.get("download_ready", False):
-        st.success("🎉 Prova adaptada gerada com sucesso!")
-        st.markdown("""
-            <div class='info-box'>
-                <b>Prova pronta para download!</b> Faça o download do arquivo adaptado ou clique abaixo para adaptar outra prova.
+# Botão para gerar devocional
+if st.button("Gerar Devocional") and feeling:
+    with st.spinner('Gerando seu devocional...'):
+        devocional = gerar_devocional(feeling)
+        devocional_formatado = formatar_negrito(devocional)
+        devocional_formatado = formatar_sugestoes(devocional_formatado)
+        st.markdown(
+            f"""
+            <div class='custom-card'>
+            {devocional_formatado.replace(chr(10), '<br>')}
             </div>
-        """, unsafe_allow_html=True)
-
-        st.download_button(
-            label="📥 Baixar Prova Adaptada (.docx)",
-            data=st.session_state["prova_processada"],
-            file_name="prova_adaptada.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            help="Clique para baixar a prova adaptada em formato Word."
+            """,
+            unsafe_allow_html=True
         )
+        salvar_historico(feeling, devocional)
 
-        st.divider()
-        st.button("🔄 Adaptar outra prova", on_click=reset_form, help="Clique para reiniciar e adaptar uma nova prova.")
-
-    # Rodapé
-    st.markdown("<div class='footer'>Desenvolvido com ❤️ por Paulo Cavalcanti Pereira | Colégio Êxodo © 2025</div>", unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+# Rodapé
+st.markdown(
+    """
+    <div style='text-align: center; font-size: 1em; margin-top: 50px; color: #6c757d;'>
+        © 2025 Minha Conversa com Jesus | Feito com Streamlit
+    </div>
+    """,
+    unsafe_allow_html=True
+)
